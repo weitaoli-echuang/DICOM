@@ -130,6 +130,7 @@ def connvert_dicom_2_raw(prefix, filenames):
 				raise Exception("Representation (signed/unsigned) must agree over all files")
 
 		outFile.write(f.PixelData)
+
 	return outFile
 
 
@@ -140,7 +141,6 @@ def connvert_dicom_2_raw_with_check(prefix, file_names, checked):
 	outFile = connvert_dicom_2_raw(prefix, file_names)
 	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
 	outFile.close()
-
 
 def main():
 	parser = argparse.ArgumentParser(
@@ -159,9 +159,7 @@ def main():
 	outFile = connvert_dicom_2_raw(arguments.prefix, filenames)
 
 	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
-
 	outFile.close()
-
 
 if __name__ == '__main__':
 	main()
