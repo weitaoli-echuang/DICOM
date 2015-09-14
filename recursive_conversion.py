@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # recursive_conversion --- Concatenates and converts a directory tree recursively
 #
@@ -7,7 +7,7 @@
 # are stored in subdirectories of the form Data/2011/STUD01/SER??, you could
 # call the script as follows:
 #
-#   ./recursive_conversion.py Data/2011/STUD01
+# ./recursive_conversion.py Data/2011/STUD01
 #
 # The result will be a series of files that are named SER??_x_y_z_b[u|s], where
 # x, y, and z refer to the dimensions of the concatenated raw DICOM volume, b
@@ -36,20 +36,56 @@
 
 from __future__ import print_function
 
+from dicomcat import *
+
+import re
 import os
-import subprocess
-import sys
+import string
+
 
 def usage():
-  print("Usage: recursive_conversion.py FILE", file=sys.stderr)
+	print("Usage: recursive_conversion.py FILE", file=sys.stderr)
 
-if len(sys.argv) != 2:
-  usage()
-  sys.exit(-1)
 
-for directory, subdirectories, files in os.walk(sys.argv[1], topdown=False):
-  if files:
-    prefix    = os.path.basename(directory)
-    filenames = [ str(os.path.join(directory, x)) for x in sorted(files) ]
+def sort_files_accroding_index(file_names):
+	file_names_map = {}
+	files_path = os.path.os.path.dirname(file_names[0])
+	print(files_path)
+	for f in file_names:
+		file_name = os.path.split(f)[-1]
 
-    subprocess.call(["./dicomcat.py", "--check", "--prefix", prefix ] + filenames)
+		symbol = re.match(r'^\D+', file_name)
+		digit = re.search(r'\d+$', file_name)
+
+		if digit is not None and symbol is not None:
+			file_names_map[string.atoi(digit.group())] = symbol.group()
+		else:
+			error_msg = str.format('error, the file %s do not have a common header with other files', f)
+			print(error_msg)
+
+	sorted_list = []
+	for key in sorted(file_names_map.iterkeys()):
+		sorted_name = file_names_map[key] + str(key)
+		f = os.path.join(files_path, sorted_name)
+		sorted_list.append(f)
+	return sorted_list
+
+
+def main():
+	if len(sys.argv) != 2:
+		usage()
+		sys.exit(-1)
+
+	for directory, subdirectories, files in os.walk(sys.argv[1], topdown=False):
+		if files:
+			prefix = os.path.basename(directory)
+			# filenames = [str(os.path.join(directory, x)) for x in sorted(files)]
+			file_names = [str(os.path.join(directory, x)) for x in sort_files_accroding_index(files)]
+			# connvert_dicom_2_raw_with_check(prefix, filenames, True)
+			# file_names = sort_files_accroding_index(files)
+			connvert_dicom_2_raw_with_check(prefix, file_names, True)
+		# subprocess.call(["./dicomcat.py", "--check", "--prefix", prefix] + filenames)
+
+
+if __name__ == '__main__':
+	main()

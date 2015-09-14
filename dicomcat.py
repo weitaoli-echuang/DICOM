@@ -29,116 +29,139 @@ import dicom
 import os
 import sys
 
+
 def formatFilename(prefix,
                    width, height, depth,
                    bits, unsigned):
-  """
-  Generates a filename using a prefix and the base parameters of all images.
-  """
+	"""
+	  Generates a filename using a prefix and the base parameters of all images.
+	  """
 
-  return format("%s_%dx%dx%d_%d%s") % (prefix,
-                                       width, height, depth,
-                                       bits, "u" if unsigned == 0 else "s" )
+	return format("%s_%dx%dx%d_%d%s") % (prefix,
+	                                     width, height, depth,
+	                                     bits, "u" if unsigned == 0 else "s" )
 
 
 def getParameters(filename):
-  """
-  Reads the relevant parameters (width, height, and so on) of a single file. No
-  direct error handling is performed.
-  """
+	"""
+	  Reads the relevant parameters (width, height, and so on) of a single file. No
+	  direct error handling is performed.
+	  """
 
-  f = dicom.read_file(filename)
+	f = dicom.read_file(filename)
 
-  return f.PatientsName,\
-         f.Columns,\
-         f.Rows,\
-         f.BitsAllocated,\
-         f.PixelRepresentation
+	return f.PatientsName, \
+	       f.Columns, \
+	       f.Rows, \
+	       f.BitsAllocated, \
+	       f.PixelRepresentation
+
 
 def isValid(filename, name, width, height, bits, unsigned):
-  """
-  Checks whether a given DICOM file is valid and refers to the same patient.
-  """
+	"""
+	  Checks whether a given DICOM file is valid and refers to the same patient.
+	  """
 
-  f = dicom.read_file(filename)
+	f = dicom.read_file(filename)
 
-  return     f.PatientsName        == name\
-         and f.Columns             == width\
-         and f.Rows                == height\
-         and f.BitsAllocated       == bits\
-         and f.PixelRepresentation == unsigned
+	return f.PatientsName == name \
+	       and f.Columns == width \
+	       and f.Rows == height \
+	       and f.BitsAllocated == bits \
+	       and f.PixelRepresentation == unsigned
+
 
 def checkFiles(filenames):
-  """
-  Checks and prunes a list of filenames. Only those filenames that refer to the
-  same patient and whose pixel data have the same dimensions will be returned.
-  for furher processing.
-  """
+	"""
+	  Checks and prunes a list of filenames. Only those filenames that refer to the
+	  same patient and whose pixel data have the same dimensions will be returned.
+	  for furher processing.
+	  """
 
-  if not filenames:
-    raise Exception("List of filenames must not be empty")
+	if not filenames:
+		raise Exception("List of filenames must not be empty")
 
-  name, width, height, bits, unsigned = getParameters(filenames[0])
+	name, width, height, bits, unsigned = getParameters(filenames[0])
 
-  return [ filename for filename in filenames if isValid(filename,
-                                                         name,
-                                                         width, height, bits, unsigned) ]
+	return [filename for filename in filenames if isValid(filename,
+	                                                      name,
+	                                                      width, height, bits, unsigned)]
 
-#
-# main
-#
 
-parser = argparse.ArgumentParser(description="This program concatenates pixel data of DICOM files. All files need to have the same image dimensions and refer to the same patient for the concatenation to work.")
-parser.add_argument("files", metavar="FILE", type=str, nargs="+", help="File for concatenation")
-parser.add_argument("--prefix", help="Prefix for output file")
-parser.add_argument("--check", action="store_true", help="Check files prior to conversion")
+def connvert_dicom_2_raw(prefix, filenames):
+	name = None
+	width = None
+	height = None
+	bits = None
+	sign_or_not = None
+	depth = len(filenames)
+	outFile = sys.stdout
 
-arguments = parser.parse_args()
+	for index, filename in enumerate(filenames):
+		f = dicom.read_file(filename)
 
-name     = None
-width    = None
-height   = None
-bits     = None
-unsigned = None
-outFile  = sys.stdout
+		percentage = 100.0 * (index + 1) / float(len(filenames))
 
-if arguments.check:
-  filenames = checkFiles(arguments.files)
-else:
-  filenames = arguments.files
+		print("[%6.2f%%] Processing '%s'..." % (percentage, os.path.basename(filename) ),
+		      file=sys.stderr)
 
-for index,filename in enumerate(filenames):
-  f = dicom.read_file(filename) 
+		if index == 0:
+			name = f.PatientsName
+			width = f.Columns
+			height = f.Rows
+			bits = f.BitsAllocated
+			sign_or_not = f.PixelRepresentation
 
-  percentage = 100.0 * (index+1) / float(len(filenames))
+			# Open output file for writing if necessary
+			if prefix:
+				outFile = open(formatFilename(prefix,
+				                              width, height, depth,
+				                              bits, sign_or_not), "w")
+		else:
+			if f.PatientsName != name:
+				raise Exception("Name must agree over all files")
+			if f.Columns != width:
+				raise Exception("Width must agree over all files")
+			if f.Rows != height:
+				raise Exception("Height must agree over all files")
+			if f.BitsAllocated != bits:
+				raise Exception("Number of bits must agree over all files")
+			if f.PixelRepresentation != sign_or_not:
+				raise Exception("Representation (signed/unsigned) must agree over all files")
 
-  print("[%6.2f%%] Processing '%s'..." % (percentage, os.path.basename(filename) ),
-        file=sys.stderr)
+		outFile.write(f.PixelData)
+	return outFile
 
-  if index == 0:
-    name     = f.PatientsName
-    width    = f.Columns
-    height   = f.Rows
-    bits     = f.BitsAllocated
-    unsigned = f.PixelRepresentation
 
-    # Open output file for writing if necessary
-    if arguments.prefix:
-      outFile = open(formatFilename(arguments.prefix,
-                                    width, height, len(arguments.files),
-                                    bits, unsigned), "w")
-  else:
-    if f.PatientsName != name:
-      raise Exception("Name must agree over all files")
-    if f.Columns != width:
-      raise Exception("Width must agree over all files")
-    if f.Rows != height:
-      raise Exception("Height must agree over all files")
-    if f.BitsAllocated != bits:
-      raise Exception("Number of bits must agree over all files")
-    if f.PixelRepresentation != unsigned:
-      raise Exception("Representation (signed/unsigned) must agree over all files")
+def connvert_dicom_2_raw_with_check(prefix, file_names, checked):
+	if checked:
+		file_names = checkFiles(file_names)
 
-  outFile.write( f.PixelData )
+	outFile = connvert_dicom_2_raw(prefix, file_names)
+	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
+	outFile.close()
 
-print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
+
+def main():
+	parser = argparse.ArgumentParser(
+		description="This program concatenates pixel data of DICOM files. All files need to have the same image dimensions and refer to the same patient for the concatenation to work.")
+	parser.add_argument("files", metavar="FILE", type=str, nargs="+", help="File for concatenation")
+	parser.add_argument("--prefix", help="Prefix for output file")
+	parser.add_argument("--check", action="store_true", help="Check files prior to conversion")
+
+	arguments = parser.parse_args()
+
+	if arguments.check:
+		filenames = checkFiles(arguments.files)
+	else:
+		filenames = arguments.files
+
+	outFile = connvert_dicom_2_raw(arguments.prefix, filenames)
+
+	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
+
+	outFile.close()
+
+
+if __name__ == '__main__':
+	main()
