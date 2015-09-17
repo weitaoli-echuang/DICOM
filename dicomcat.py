@@ -28,6 +28,7 @@ import argparse
 import dicom
 import os
 import sys
+import struct
 
 
 def formatFilename(prefix,
@@ -116,7 +117,7 @@ def connvert_dicom_2_raw(prefix, filenames):
 			if prefix:
 				outFile = open(formatFilename(prefix,
 				                              width, height, depth,
-				                              bits, sign_or_not), "w")
+				                              bits, sign_or_not), "wb")
 		else:
 			if f.PatientsName != name:
 				raise Exception("Name must agree over all files")
@@ -129,7 +130,9 @@ def connvert_dicom_2_raw(prefix, filenames):
 			if f.PixelRepresentation != sign_or_not:
 				raise Exception("Representation (signed/unsigned) must agree over all files")
 
-		outFile.write(f.PixelData)
+		# outFile.write(f.PixelData)
+		# pix = f.pixel_array
+		outFile.write(''.join(struct.pack('h', x) for x in f.pixel_array.flatten().tolist()))
 
 	return outFile
 
@@ -141,6 +144,7 @@ def connvert_dicom_2_raw_with_check(prefix, file_names, checked):
 	outFile = connvert_dicom_2_raw(prefix, file_names)
 	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
 	outFile.close()
+
 
 def main():
 	parser = argparse.ArgumentParser(
@@ -160,6 +164,7 @@ def main():
 
 	print("Finished writing data to '%s'" % outFile.name, file=sys.stderr)
 	outFile.close()
+
 
 if __name__ == '__main__':
 	main()
