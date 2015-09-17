@@ -80,13 +80,7 @@ def main():
 		if files:
 			prefix = os.path.basename(directory)
 			file_names = [str(os.path.join(directory, x)) for x in sort_files_accroding_index(files)]
-			# connvert_dicom_2_raw_with_check(prefix, file_names, True)
-
-			abs_path = os.path.abspath(prefix)
-			abs_file_names = [str(os.path.join(abs_path, x)) for x in sort_files_accroding_index(files)]
-			file_list_name = 'file_list.txt'
-			fid = open(file_list_name, 'w')
-			fid.write('\n'.join(abs_file_names))
+			connvert_dicom_2_raw_with_check(prefix, file_names, True)
 
 
 if __name__ == '__main__':
