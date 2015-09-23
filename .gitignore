@@ -3,4 +3,7 @@ Data/
 *.swp
 
 SE1/
+
+
 *.raw
+SE1_512x512x320_16s
